@@ -17,3 +17,4 @@ public final class Aplicacion {
     });
   }
 }
+//Revisada la estructura del codigo por YAAB 11.11.2026
