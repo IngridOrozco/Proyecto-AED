@@ -12,10 +12,6 @@ Aplicación de escritorio **Java 17 / Swing / MySQL 8**, con separación MVC/DAO
 
 Con una cuenta de migraciones, ejecute **una sola vez** [`database/esquema.sql`](database/esquema.sql) en MySQL Workbench u otro cliente SQL. El script crea `sgai-soldano-db` y las ocho tablas (incluidas `matriculas` y `secuencias_codigo`). No vuelve a crear tablas existentes ni migra esquemas previos.
 
-**Si ya utiliza la versión anterior**, no ejecute el esquema de instalación ni borre tablas: haga un respaldo, cierre todas las instancias y ejecute con su cuenta de migraciones [`database/migraciones/002_matricula_parciales_codigos.sql`](database/migraciones/002_matricula_parciales_codigos.sql), **una sola vez**. El DDL de MySQL tiene commit implícito; si falla, revise qué sentencias se aplicaron antes de reintentar o restaure el respaldo. La aplicación no realiza migraciones automáticas.
-
-La migración renombra `periodo` a `periodo_parcial`, conserva notas e IDs, crea matrículas únicamente para los pares alumno/curso con notas existentes y mantiene los códigos actuales. Para nuevas altas genera `ESTU1…`, `PROF1…`, `CURS1…` (o continúa después del mayor sufijo ya utilizado). Las secuencias son persistentes y transaccionales: los códigos no se editan ni se reutilizan tras una baja. Para alumnos sin notas anteriores, el administrador debe matricularlos explícitamente. Las variables de entorno JDBC y la instalación administrativa no cambian.
-
 Cree una cuenta MySQL **específica** para la aplicación con permisos `SELECT`, `INSERT`, `UPDATE`, `DELETE` solamente sobre `sgai-soldano-db` y acceso limitado al origen de la aplicación. No utilice `root`. Las migraciones y las copias de seguridad son responsabilidad de otra cuenta. La aplicación no necesita permisos DDL ni `GRANT`.
 
 ### Datos ficticios para pruebas rápidas
