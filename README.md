@@ -180,15 +180,9 @@ Decisiones explícitas:
 
 Estos límites evitan presentar un proyecto académico verificable como un despliegue de producción ya auditado.
 
-
 ## Identidad visual y notas enteras
 
 Las ventanas y formularios mantienen sus paneles y posiciones. Comparten una identidad azul/blanca, botones redondeados con iconos vectoriales, pestaña activa azul, tablas con cabecera azul y filas alternas y avisos con iconos institucionales. Los reportes de notas y matrícula conservan el emblema, la vista previa, los márgenes carta y la paginación. Las notas inferiores a 60 se muestran en rojo, incluso al seleccionar una fila y al imprimir. Los promedios siguen siendo decimales; las notas individuales son `int` en Java e `INT` en el esquema nuevo.
 
-**Instalaciones existentes:** antes de usar esta versión, respalde la base y cierre todas las instancias. Aplique [`database/migraciones/003_notas_enteras.sql`](database/migraciones/003_notas_enteras.sql) con una cuenta de migraciones, después de la migración 002 si proviene del esquema anterior. El script lista notas con fracción y **se detiene sin convertir la columna si las encuentra**. No redondea, no borra notas y no reinicia datos: el responsable académico debe decidir y corregir esos valores antes de reintentar. Si todas las notas son enteras (incluidas las almacenadas como `85.00`), convierte la columna sin alterar sus valores. La aplicación también rechaza leer fracciones antiguas en lugar de truncarlas. En instalaciones nuevas, `esquema.sql` ya define notas enteras. La carga nueva de demostración genera enteros y no debe repetirse sobre un lote ya cargado.
 
-### Unificación del nombre Nota
 
-El modelo Java es `Nota`, las estructuras son `NodoNota` y `ListaEnlazadaNotas`, y la tabla SQL es `notas`. El formulario de registro y edición se titula **Nota**.
-
-Para una base existente con el nombre de tabla anterior, haga un respaldo, cierre SGAI y ejecute primero `database/migraciones/004_renombrar_tabla_notas.sql` con la cuenta de migraciones, antes de iniciar esta versión o aplicar las versiones actualizadas de 002/003 si todavía las necesita. La migración 004 conserva registros, claves e índices; no hace nada si ya existe solo `notas` y aborta si existen ambas tablas. En una instalación limpia use únicamente los tres entregables SQL habituales; no necesita la migración 004.
