@@ -1,0 +1,78 @@
+name: Verificación Java y MySQL
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        esquema: [nuevo, migrado, demostracion]
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: clave-solo-ci
+          MYSQL_DATABASE: sgai-soldano-db
+          MYSQL_USER: sgai_ci
+          MYSQL_PASSWORD: clave-solo-ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pclave-solo-ci"
+          --health-interval=10s --health-timeout=5s --health-retries=15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Aplicar esquema nuevo
+        if: matrix.esquema != 'migrado'
+        env:
+          MYSQL_PWD: clave-solo-ci
+        run: mysql --protocol=tcp -h 127.0.0.1 -u sgai_ci sgai-soldano-db < database/esquema.sql
+      - name: Migrar datos de la versión anterior
+        if: matrix.esquema == 'migrado'
+        env:
+          MYSQL_PWD: clave-solo-ci
+        run: |
+          mysql --protocol=tcp -h 127.0.0.1 -u sgai_ci sgai-soldano-db < src/test/resources/esquema_anterior.sql
+          mysql --protocol=tcp -h 127.0.0.1 -u sgai_ci sgai-soldano-db < src/test/resources/datos_anteriores.sql
+          mysql --protocol=tcp -h 127.0.0.1 -u sgai_ci sgai-soldano-db < database/migraciones/002_matricula_parciales_codigos.sql
+      - name: Comprobar que la migración no redondea notas antiguas
+        if: matrix.esquema == 'migrado'
+        env:
+          MYSQL_PWD: clave-solo-ci
+        run: |
+          mysql --protocol=tcp -h 127.0.0.1 -u sgai_ci sgai-soldano-db -e "UPDATE notas SET nota=85.50 WHERE id=1"
+          if mysql --protocol=tcp -h 127.0.0.1 -u sgai_ci sgai-soldano-db < database/migraciones/003_notas_enteras.sql; then
+            echo "La migración aceptó una nota con fracción"
+            exit 1
+          fi
+          valor=$(mysql --batch --skip-column-names --protocol=tcp -h 127.0.0.1 -u sgai_ci sgai-soldano-db -e "SELECT nota FROM notas WHERE id=1")
+          test "$valor" = "85.50"
+          # Solo el fixture desechable de CI vuelve al valor original autorizado.
+          mysql --protocol=tcp -h 127.0.0.1 -u sgai_ci sgai-soldano-db -e "UPDATE notas SET nota=85 WHERE id=1"
+      - name: Aplicar migración de notas enteras
+        env:
+          MYSQL_PWD: clave-solo-ci
+        run: mysql --protocol=tcp -h 127.0.0.1 -u sgai_ci sgai-soldano-db < database/migraciones/003_notas_enteras.sql
+      - name: Verificar migración de nombre de tabla (idempotente)
+        env:
+          MYSQL_PWD: clave-solo-ci
+        run: |
+          mysql --protocol=tcp -h 127.0.0.1 -u sgai_ci sgai-soldano-db < database/migraciones/004_renombrar_tabla_notas.sql
+          mysql --protocol=tcp -h 127.0.0.1 -u sgai_ci sgai-soldano-db < database/migraciones/004_renombrar_tabla_notas.sql
+      - name: Pruebas y empaquetado
+        env:
+          SGAI_PRUEBAS_MYSQL: ${{ matrix.esquema == 'nuevo' && 'true' || 'false' }}
+          SGAI_PRUEBAS_MIGRACION: ${{ matrix.esquema == 'migrado' && 'true' || 'false' }}
+          SGAI_PRUEBAS_DEMO: ${{ matrix.esquema == 'demostracion' && 'true' || 'false' }}
+          # Exclusiva del contenedor efímero; nunca usar en una instalación real.
+          SGAI_CLAVE_INSTALACION: clave-instalacion-efimera-ci-2026-solo-pruebas
+          SGAI_DB_USUARIO: sgai_ci
+          SGAI_DB_CLAVE: clave-solo-ci
+          SGAI_DB_URL: jdbc:mysql://127.0.0.1:3306/sgai-soldano-db?sslMode=DISABLED&connectTimeout=5000&socketTimeout=15000
+        run: mvn --batch-mode verify
